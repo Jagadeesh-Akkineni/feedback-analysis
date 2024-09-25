@@ -35,8 +35,15 @@ if uploaded_file is not None:
         # Extract keywords from bot messages
         data['category'] = data['bot_message'].apply(lambda msg: extract_keywords(str(msg), keywords))
 
-        # Extract date from 'created_at'
-        data['created_date'] = pd.to_datetime(data['created_at'], format="%d-%m-%Y %H:%M", dayfirst=True).dt.date
+        # Extract date from 'created_at' with flexible date parsing
+        try:
+            data['created_date'] = pd.to_datetime(data['created_at'], format="%d-%m-%Y %H:%M", dayfirst=True).dt.date
+        except ValueError:
+            # If the format is different, try inferring the format
+            data['created_date'] = pd.to_datetime(data['created_at'], format='mixed', dayfirst=True, errors='coerce').dt.date
+
+        # Remove any rows with NaT in 'created_date' if there are parsing errors
+        data = data.dropna(subset=['created_date'])
 
         # Calculate overall feedback usefulness
         total_feedback = len(data)
@@ -103,5 +110,6 @@ if uploaded_file is not None:
         # Display data table with keyword extraction
         st.subheader("Data with Extracted Categories")
         st.dataframe(data[['created_at', 'bot_message', 'category', 'isuseful']])
+
     else:
         st.error("The uploaded file is missing required columns: 'bot_message', 'isuseful', 'created_at', or 'created_by'.")
